@@ -1,0 +1,127 @@
+---
+title: "Practical_Machine_Learning"
+author: "Krishna"
+date: "1/19/2019"
+output:
+  html_document: 
+    keep_md: yes
+---
+
+## Introduction
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. 
+
+In this project, we will use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants.
+And we will predict the manner in which they did the exercise.
+
+## Attach neccessary libraries
+
+```{r}
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(corrplot)
+library(rattle)
+```
+
+## Fetch and cleanup data
+
+Download data from given URLs
+
+```{r}
+trainUrl <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv")
+testUrl <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv")
+if (!file.exists("train.csv")) {
+download.file(trainUrl, destfile="train.csv", method="curl")
+  }
+if (!file.exists("test.csv")) {
+download.file(testUrl, destfile="test.csv", method="curl")
+  }
+```
+
+Read and get familirize with data
+
+```{r}
+traindata <- read.csv("train.csv")
+testdata <- read.csv("test.csv")
+dim(traindata)
+dim(testdata)
+str(traindata)
+```
+
+Lets count complete cases in train data
+
+```{r}
+sum(complete.cases(traindata))
+```
+
+Remove columns, which has only NA values
+
+```{r}
+traindata <- traindata[, colSums(is.na(traindata)) == 0]
+testdata <- testdata[, colSums(is.na(testdata)) == 0]
+```
+
+Remove columns which dont contribute much to prediction models
+
+```{r}
+classe <- traindata$classe
+trainRemCols <- grepl("^X|timestamp|window", names(traindata))
+traindata <- traindata[, !trainRemCols]
+trainFormat <- traindata[, sapply(traindata, is.numeric)]
+trainFormat$classe <- classe
+testRemCols <- grepl("^X|timestamp|window", names(testdata))
+testdata <- testdata[, !testRemCols]
+testFormat <- testdata[, sapply(testdata, is.numeric)]
+dim(trainFormat)
+dim(testFormat)
+```
+
+
+Split train formatted data
+
+
+```{r}
+set.seed(467835) 
+splitTrain <- createDataPartition(trainFormat$classe, p=0.60, list=F)
+trainData2 <- trainFormat[splitTrain, ]
+testData2 <- trainFormat[-splitTrain, ]
+```
+
+## Prediction models
+
+### Decision Trees prediction
+
+```{r}
+fit1 <- rpart(classe ~ ., data=trainData2, method="class")
+treepred1 <- predict(fit1, testData2, type = "class")
+confusionMatrix(treepred1, testData2$classe)
+fancyRpartPlot(fit1)
+```
+
+It seems accuracy of decision trees prediction is 74%
+
+### Random forests prediction
+
+```{r}
+fit2 <- randomForest(classe ~ ., data=trainData2)
+rfpred2 <- predict(fit2, testData2, type = "class")
+confusionMatrix(rfpred2, testData2$classe)
+plot(fit2)
+```
+
+
+It seems accuracy of random forests prediction is 99%
+
+
+### Results
+
+As random forests prediction has highest accuracy, lets fit it with cleaned up test data provided.
+
+```{r}
+finalResult <- predict(fit2, testFormat[, -length(names(testFormat))])
+finalResult
+```
+
+
